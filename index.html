@@ -21,10 +21,12 @@
     <p id="saved_message"></p>
 
     <h2>入力情報</h2>
-    <label>手札とフィールドの合計 (A):</label>
+    <label>手札とフィールドの合計枚数:</label>
     <input type="number" id="total_hands" placeholder="例: 11">
-    <label>相手の場のモンスターの合計レベル (B):</label>
-    <input type="number" id="opponent_level" placeholder="例: 8">
+
+    <label>相手の場のモンスターのレベル (カンマ区切り):</label>
+    <input type="text" id="opponent_monsters" placeholder="例: 4,8">
+
     <button onclick="calculate()" style="background: #5cb85c;">計算</button>
 
     <!-- 結果セクション -->
