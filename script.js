@@ -1,3 +1,5 @@
+window.onload = loadMonsters;
+
 // 記録したデータを取得する
 function loadMonsters() {
   const fusionLevels = sessionStorage.getItem("fusion_levels");
@@ -36,89 +38,114 @@ function clearMonsters() {
   document.getElementById("saved_message").textContent = "記録をクリアしました。";
 }
 
-// 融合条件をチェックする関数（再利用可能に）
-function checkCombination(fusionLevels, xyzRanksInput, totalHands, opponentLevel) {
-  if (fusionLevels.length === 0 || xyzRanksInput.length === 0 || isNaN(totalHands) || isNaN(opponentLevel)) {
-    return { possible: false, combinations: [] };
+// 個々のモンスターに対して条件チェック
+function checkForMonster(fusionLevels, xyzRanksInput, totalHands, monsterLevel) {
+  if (fusionLevels.length === 0 || xyzRanksInput.length === 0 || isNaN(totalHands) || isNaN(monsterLevel)) {
+    return { possible: false };
   }
 
   const xyzCounts = {};
   xyzRanksInput.forEach(rank => {
-    xyzCounts[rank] = 2; // 各ランクを2体としてカウント
+    xyzCounts[rank] = 2; // 各ランクは2体
   });
 
-  const y = 2 * opponentLevel - totalHands; // 融合モンスターのレベル
-  const x = opponentLevel - y; // Xモンスターのランク
-
-  let isPossible = false;
-  const combinations = [];
+  const y = 2 * monsterLevel - totalHands; 
+  const x = monsterLevel - y;
 
   if (fusionLevels.includes(y) && xyzCounts[x] === 2) {
-    isPossible = true;
-    combinations.push({y, x});
+    return { possible: true, combination: { y, x } };
+  } else {
+    return { possible: false };
   }
-
-  return { possible: isPossible, combinations };
 }
 
 function calculate() {
   const fusionLevels = document.getElementById("fusion_levels").value.split(",").map(Number).filter(n => !isNaN(n));
   const xyzRanksInput = document.getElementById("xyz_ranks").value.split(",").map(Number).filter(n => !isNaN(n));
   const totalHandsOriginal = parseInt(document.getElementById("total_hands").value);
-  const opponentLevel = parseInt(document.getElementById("opponent_level").value);
+  const opponentMonstersLevels = document.getElementById("opponent_monsters").value
+    .split(",").map(Number).filter(n => !isNaN(n));
 
   const resultEl = document.getElementById("result");
   const adjustedResultsEl = document.getElementById("adjusted_results");
-
-  // 初期化
   resultEl.innerHTML = "";
   adjustedResultsEl.innerHTML = "";
 
-  // メインチェック
-  let baseCheck = checkCombination(fusionLevels, xyzRanksInput, totalHandsOriginal, opponentLevel);
-
-  if (isNaN(totalHandsOriginal) || isNaN(opponentLevel) || fusionLevels.length === 0 || xyzRanksInput.length === 0) {
+  if (isNaN(totalHandsOriginal) || fusionLevels.length === 0 || xyzRanksInput.length === 0 || opponentMonstersLevels.length === 0) {
     resultEl.innerHTML = `<div class="result-card fail"><h3>入力エラー</h3><p>すべての入力項目を正しく入力してください。</p></div>`;
     return;
   }
 
-  if (baseCheck.possible) {
-    // 成功表示
-    let combosHtml = baseCheck.combinations.map(c => `
+  let anySuccess = false;
+
+  // 各モンスター個別に判定
+  let allResultsHtml = `<div class="result-card">`;
+  allResultsHtml += `<h3>相手モンスター別判定結果</h3>`;
+  opponentMonstersLevels.forEach(monsterLevel => {
+    const check = checkForMonster(fusionLevels, xyzRanksInput, totalHandsOriginal, monsterLevel);
+    if (check.possible) {
+      anySuccess = true;
+      allResultsHtml += `
       <div class="result-combination">
-        <h4>組み合わせ:</h4>
+        <h4>相手モンスター レベル: ${monsterLevel}</h4>
+        <p>条件成立！</p>
         <ul>
-          <li>融合モンスター レベル: ${c.y}</li>
-          <li>Xモンスター ランク: ${c.x}</li>
+          <li>融合モンスター レベル: ${check.combination.y}</li>
+          <li>Xモンスター ランク: ${check.combination.x}</li>
         </ul>
       </div>
-    `).join("");
+      `;
+    } else {
+      allResultsHtml += `
+      <div class="result-combination">
+        <h4>相手モンスター レベル: ${monsterLevel}</h4>
+        <p>条件不成立</p>
+      </div>
+      `;
+    }
+  });
+  allResultsHtml += `</div>`;
 
+  // 不成立時の表示を以前の形式に戻す
+  if (!anySuccess) {
+    // 全て不成立の場合は以前と同じメッセージ形式
     resultEl.innerHTML = `
-      <div class="result-card success">
-        <h3>条件を満たしました！</h3>
-        ${combosHtml}
+      <div class="result-card fail">
+        <h3>条件不成立</h3>
+        <p>条件を満たす組み合わせは見つかりませんでした。</p>
       </div>
     `;
   } else {
-    // 不成功
-    resultEl.innerHTML = `<div class="result-card fail"><h3>条件不成立</h3><p>条件を満たす組み合わせは見つかりませんでした。</p></div>`;
+    // 一部成立があれば従来通りの表示に戻す
+    resultEl.innerHTML = allResultsHtml;
   }
 
-  // ±5での再チェック
+
+  // ±5で再チェック（この部分は変更なし）
   const maxAdjust = 5;
   const adjustedPossibilities = [];
 
   for (let diff = -maxAdjust; diff <= maxAdjust; diff++) {
     if (diff === 0) continue;
     const newTotal = totalHandsOriginal + diff;
-    if (newTotal < 0) continue; 
-    const check = checkCombination(fusionLevels, xyzRanksInput, newTotal, opponentLevel);
-    if (check.possible) {
+    if (newTotal < 0) continue;
+
+    let combosForThisAdjustment = [];
+    opponentMonstersLevels.forEach(monsterLevel => {
+      const check = checkForMonster(fusionLevels, xyzRanksInput, newTotal, monsterLevel);
+      if (check.possible) {
+        combosForThisAdjustment.push({
+          monsterLevel: monsterLevel,
+          combination: check.combination
+        });
+      }
+    });
+
+    if (combosForThisAdjustment.length > 0) {
       adjustedPossibilities.push({
         diff: diff,
         totalHands: newTotal,
-        combinations: check.combinations
+        results: combosForThisAdjustment
       });
     }
   }
@@ -129,23 +156,23 @@ function calculate() {
     let adjustedHtml = `<h3>増減で実現可能な組み合わせ</h3>`;
     adjustedPossibilities.forEach(item => {
       const sign = (item.diff > 0) ? `+${item.diff}` : `${item.diff}`;
-      const comboItems = item.combinations.map(c => `
-        <ul>
-          <li>融合レベル: ${c.y}, Xランク: ${c.x}</li>
-        </ul>
-      `).join("");
-
       adjustedHtml += `
         <div class="adjusted-item">
-          <h4>手札とフィールド合計: ${item.totalHands} (${sign}枚調整)</h4>
-          ${comboItems}
-        </div>
+          <h4>手札・フィールド合計: ${item.totalHands} (${sign}枚調整)</h4>
       `;
+
+      item.results.forEach(r => {
+        adjustedHtml += `
+          <ul>
+            <li>相手モンスター レベル: ${r.monsterLevel}</li>
+            <li>融合レベル: ${r.combination.y}, Xランク: ${r.combination.x}</li>
+          </ul>
+        `;
+      });
+
+      adjustedHtml += `</div>`;
     });
 
     adjustedResultsEl.innerHTML = adjustedHtml;
   }
 }
-
-// ページ読み込み時に記録したデータを自動的に表示
-window.onload = loadMonsters;
