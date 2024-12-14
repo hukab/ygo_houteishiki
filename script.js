@@ -78,14 +78,13 @@ function calculate() {
 
   let anySuccess = false;
 
-  // 各モンスター個別に判定
-  let allResultsHtml = `<div class="result-card">`;
-  allResultsHtml += `<h3>相手モンスター別判定結果</h3>`;
+  // 成立したモンスターのみ格納
+  let successHtml = `<div class="result-card"><h3>相手モンスター別判定結果</h3>`;
   opponentMonstersLevels.forEach(monsterLevel => {
     const check = checkForMonster(fusionLevels, xyzRanksInput, totalHandsOriginal, monsterLevel);
     if (check.possible) {
       anySuccess = true;
-      allResultsHtml += `
+      successHtml += `
       <div class="result-combination">
         <h4>相手モンスター レベル: ${monsterLevel}</h4>
         <p>条件成立！</p>
@@ -95,20 +94,13 @@ function calculate() {
         </ul>
       </div>
       `;
-    } else {
-      allResultsHtml += `
-      <div class="result-combination">
-        <h4>相手モンスター レベル: ${monsterLevel}</h4>
-        <p>条件不成立</p>
-      </div>
-      `;
     }
   });
-  allResultsHtml += `</div>`;
+  successHtml += `</div>`;
 
-  // 不成立時の表示を以前の形式に戻す
+  // 成否判定後の表示
   if (!anySuccess) {
-    // 全て不成立の場合は以前と同じメッセージ形式
+    // 全て不成立の場合
     resultEl.innerHTML = `
       <div class="result-card fail">
         <h3>条件不成立</h3>
@@ -116,12 +108,11 @@ function calculate() {
       </div>
     `;
   } else {
-    // 一部成立があれば従来通りの表示に戻す
-    resultEl.innerHTML = allResultsHtml;
+    // 成立したもののみ表示
+    resultEl.innerHTML = successHtml;
   }
 
-
-  // ±5で再チェック（この部分は変更なし）
+  // ±5で再チェック
   const maxAdjust = 5;
   const adjustedPossibilities = [];
 
